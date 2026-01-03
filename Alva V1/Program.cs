@@ -6,86 +6,214 @@
 // allows message input, and securely re-encrypts the updated chat session.
 
 using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Text.Json;
 
 namespace Alva_V1
 {
     class Program
     {
-        static void Main()
+        // We keep the Private Key in memory while the app is running
+        private static string _myPrivateKeyXml = "";
+        private static string _myUsername = "";
+        
+        // The Postman
+        private static readonly NetworkClient _client = new NetworkClient("http://localhost:5000");
+
+        static async Task Main(string[] args)
         {
-            Console.WriteLine("==== Alva Secure Chat ====");
-            Console.WriteLine("Version 1.0 - Gymnasiearbete by Jesper \"Grenade\" & [Partner Name]");
-            Console.WriteLine();
+            Console.WriteLine("==== Alva V2: Secure Messenger ====");
+            Console.WriteLine("Initializing Crypto Engines...\n");
 
-            // --- USER LOGIN PHASE ---
-            Console.Write("Enter username: ");
-            string username = Console.ReadLine() ?? "";
-
-            Console.Write("Enter password: ");
-            char[] password = ReadPassword(); // Secure password input (no echo)
-
-            // Optional: enforce strong passwords
-            if (!IsAcceptablePassword(password))
+            // 1. AUTHENTICATION PHASE
+            if (!await AttemptLoginOrRegister())
             {
-                Console.WriteLine("⚠️ Password too weak. Must be at least 12 characters with a mix of letters, digits, or symbols.");
-                Array.Clear(password, 0, password.Length);
+                Console.WriteLine("❌ Authentication failed. Exiting.");
                 return;
             }
 
-            // --- LOAD & DISPLAY HISTORY ---
-            Console.WriteLine();
-            MessageHistory.Display(username, password); // Show old messages, if any
+            Console.WriteLine($"\n✅ Welcome, {_myUsername}. You are connected.");
+            Console.WriteLine("-------------------------------------------------");
 
-            // Load message list (existing or new)
-            List<string> messages = MessageHistory.Load(username, password);
-
-            // --- CHAT INPUT LOOP ---
-            Console.WriteLine("Type your messages (type '/exit' to quit):");
+            // 2. MAIN MENU LOOP
             while (true)
             {
-                Console.Write("> ");
-                string line = Console.ReadLine() ?? "";
+                Console.WriteLine("\n[1] 📩 Check Inbox");
+                Console.WriteLine("[2] 📝 Send Message");
+                Console.WriteLine("[3] ❌ Exit");
+                Console.Write("Select option: ");
+                
+                var choice = Console.ReadLine();
 
-                if (line.Trim().Equals("/exit", StringComparison.OrdinalIgnoreCase))
-                    break;
-
-                if (!string.IsNullOrWhiteSpace(line))
-                    messages.Add($"{DateTime.Now:HH:mm} {username}: {line}");
+                switch (choice)
+                {
+                    case "1":
+                        await CheckInbox();
+                        break;
+                    case "2":
+                        await SendMessageSequence();
+                        break;
+                    case "3":
+                        return;
+                    default:
+                        Console.WriteLine("Invalid option.");
+                        break;
+                }
             }
-
-            // --- SAVE PHASE ---
-            string saveJson = JsonSerializer.Serialize(messages, new JsonSerializerOptions { WriteIndented = true });
-            string filePath = CryptoUtils.EncryptedFilePathForUser(username);
-
-            ChatHistoryCrypto.SaveEncryptedHistory(filePath, username, password, saveJson);
-
-            Console.WriteLine($"\n💾 Chat history saved securely to {filePath}");
-
-            // --- CLEANUP ---
-            Array.Clear(password, 0, password.Length);
-            messages.Clear();
         }
 
-        // --- SECURE PASSWORD INPUT ---
-        //
-        // Cross-platform implementation that masks typed characters with '*'
-        // Works in most terminal environments (Windows, macOS, Linux)
-        //
-        // Returns: char[] instead of string to allow secure memory clearing after use.
+        // --- AUTH LOGIC ---
+        private static async Task<bool> AttemptLoginOrRegister()
+        {
+            Console.Write("Enter Username: ");
+            _myUsername = Console.ReadLine()?.Trim() ?? "";
+            
+            Console.Write("Enter Password: ");
+            var password = ReadPassword(); // Your existing secure reader
+
+            // Define where we store the keys securely (using V1 Logic!)
+            // We use the same 'EncryptedFilePathForUser' from V1
+            string keyFilePath = CryptoUtils.EncryptedFilePathForUser(_myUsername + "_keys");
+
+            try 
+            {
+                if (System.IO.File.Exists(keyFilePath))
+                {
+                    // === RETURNING USER ===
+                    Console.WriteLine("\n🔐 Local keys found. Decrypting identity...");
+                    
+                    // 1. Load Private Key using V1 Crypto
+                    // This will throw if password is wrong
+                    _myPrivateKeyXml = ChatHistoryCrypto.LoadEncryptedHistory(keyFilePath, _myUsername, password);
+                    
+                    // 2. Login to Server
+                    Console.WriteLine("🌍 Logging into server...");
+                    if (await _client.LoginAsync(_myUsername, new string(password)))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("⚠️ Server rejected login (Wrong password? Server down?)");
+                        return false;
+                    }
+                }
+                else
+                {
+                    // === NEW USER ===
+                    Console.WriteLine("\n🆕 No local keys found. Registering new identity...");
+                    
+                    // 1. Generate RSA Keys (The "Crypto Scene" stuff)
+                    Console.WriteLine("⚙️ Generating 2048-bit RSA Keypair...");
+                    var (publicXml, privateXml) = KeyManager.GenerateKeyPair();
+                    _myPrivateKeyXml = privateXml;
+
+                    // 2. Register with Server (Send PUBLIC key only)
+                    Console.WriteLine("🌍 Sending Public Key to Server...");
+                    if (await _client.RegisterAsync(_myUsername, new string(password), publicXml))
+                    {
+                        // 3. Login to get the Token
+                        await _client.LoginAsync(_myUsername, new string(password));
+
+                        // 4. Save PRIVATE Key securely (Using V1 Crypto)
+                        Console.WriteLine("💾 Encrypting and saving Private Key to disk...");
+                        ChatHistoryCrypto.SaveEncryptedHistory(keyFilePath, _myUsername, password, privateXml);
+                        
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("⚠️ Registration failed (Username taken?)");
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n❌ Error: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                // Always clear password from memory
+                Array.Clear(password, 0, password.Length);
+            }
+        }
+
+        // --- MESSAGING LOGIC ---
+        private static async Task CheckInbox()
+        {
+            Console.WriteLine("\n📥 Fetching messages...");
+            var msgs = await _client.GetInboxAsync();
+
+            if (msgs.Count == 0)
+            {
+                Console.WriteLine("📭 Inbox is empty.");
+                return;
+            }
+
+            Console.WriteLine($"📬 You have {msgs.Count} new message(s):");
+            foreach (var msg in msgs)
+            {
+                try 
+                {
+                    // The Magic Moment: Using Private Key to decrypt
+                    string decryptedText = KeyManager.DecryptMyMessage(msg.Content, _myPrivateKeyXml);
+                    
+                    Console.WriteLine($"\n--- FROM: {msg.Sender} [{msg.SentAt.ToLocalTime()}] ---");
+                    Console.WriteLine(decryptedText);
+                }
+                catch
+                {
+                    Console.WriteLine($"\n--- FROM: {msg.Sender} ---");
+                    Console.WriteLine("⚠️ [Decryption Failed: Message may be corrupted or from wrong key]");
+                }
+            }
+            Console.WriteLine("\n(Messages have been removed from server)");
+        }
+
+        private static async Task SendMessageSequence()
+        {
+            Console.Write("\nRecipient Username: ");
+            var recipient = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(recipient)) return;
+
+            // 1. Get Recipient's Public Key (The "Phonebook" Lookup)
+            Console.Write($"🔍 Looking up public key for '{recipient}'... ");
+            var recipientKeyXml = await _client.GetPublicKeyAsync(recipient);
+
+            if (recipientKeyXml == null)
+            {
+                Console.WriteLine("❌ User not found.");
+                return;
+            }
+            Console.WriteLine("✅ Found.");
+
+            // 2. Type Message
+            Console.Write("Message: ");
+            var text = Console.ReadLine();
+            if (string.IsNullOrEmpty(text)) return;
+
+            // 3. Encrypt (Using THEIR Public Key)
+            byte[] encryptedBytes = KeyManager.EncryptForUser(text, recipientKeyXml);
+
+            // 4. Send
+            Console.WriteLine("🚀 Sending encrypted payload...");
+            bool success = await _client.SendMessageAsync(recipient, encryptedBytes);
+
+            if (success) Console.WriteLine("✅ Message Sent!");
+            else Console.WriteLine("❌ Failed to send.");
+        }
+
+        // Helper for secure password reading (Copied from your V1)
         static char[] ReadPassword()
         {
             var pass = new List<char>();
             ConsoleKeyInfo key;
-
             while (true)
             {
                 key = Console.ReadKey(intercept: true);
-
-                if (key.Key == ConsoleKey.Enter)
-                    break;
-
+                if (key.Key == ConsoleKey.Enter) break;
                 if (key.Key == ConsoleKey.Backspace && pass.Count > 0)
                 {
                     pass.RemoveAt(pass.Count - 1);
@@ -97,31 +225,8 @@ namespace Alva_V1
                     Console.Write('*');
                 }
             }
-
             Console.WriteLine();
             return pass.ToArray();
-        }
-
-        // --- PASSWORD STRENGTH VALIDATION ---
-        //
-        // Enforces a minimum password complexity requirement to reduce the risk
-        // of brute-force or dictionary attacks on encrypted chat files.
-        static bool IsAcceptablePassword(char[] password)
-        {
-            if (password == null || password.Length < 12)
-                return false;
-
-            bool hasLower = false, hasUpper = false, hasDigit = false, hasSymbol = false;
-            foreach (var c in password)
-            {
-                if (char.IsLower(c)) hasLower = true;
-                else if (char.IsUpper(c)) hasUpper = true;
-                else if (char.IsDigit(c)) hasDigit = true;
-                else hasSymbol = true;
-            }
-
-            int score = (hasLower ? 1 : 0) + (hasUpper ? 1 : 0) + (hasDigit ? 1 : 0) + (hasSymbol ? 1 : 0);
-            return score >= 3;
         }
     }
 }

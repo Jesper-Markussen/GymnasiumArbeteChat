@@ -36,6 +36,8 @@ namespace Alva_V1
         /// Used to verify that a file is actually a valid encrypted chat file.
         /// </summary>
         private const string MAGIC = "CHATHIST1"; // 9 ASCII bytes
+        private const int AesGcmTagSize = 16; // 128-bit tag (recommended)
+
 
         // --------------------------------------------------------------------
         // PUBLIC METHODS
@@ -90,10 +92,16 @@ namespace Alva_V1
                 byte[] tag = new byte[16]; // 128-bit authentication tag (ensures integrity)
 
                 // AES-GCM provides both encryption and message authentication in one step.
-                using (var aes = new AesGcm(key))
+                using (var aes = new AesGcm(key, AesGcmTagSize))
                 {
-                    aes.Encrypt(nonce, plaintext, ciphertext, tag);
+                    aes.Encrypt(
+                        nonce.AsSpan(),
+                        plaintext.AsSpan(),
+                        ciphertext.AsSpan(),
+                        tag.AsSpan()
+                    );
                 }
+
 
                 // --- STEP 6: Write binary file structure ---
                 // Layout (ordered):
@@ -172,10 +180,17 @@ namespace Alva_V1
                 {
                     // --- STEP 4: Decrypt ciphertext ---
                     byte[] plaintext = new byte[ciphertext.Length];
-                    using (var aes = new AesGcm(key))
+                    using (var aes = new AesGcm(key, AesGcmTagSize))
                     {
-                        aes.Decrypt(nonce, ciphertext, tag, plaintext);
+                        aes.Decrypt(
+                            nonce.AsSpan(),
+                            ciphertext.AsSpan(),
+                            tag.AsSpan(),
+                            plaintext.AsSpan()
+                        );
                     }
+
+
 
                     // --- STEP 5: Convert decrypted bytes back to string ---
                     return Encoding.UTF8.GetString(plaintext);
@@ -227,7 +242,10 @@ namespace Alva_V1
             string normUser = (username ?? string.Empty).Trim().ToLowerInvariant();
 
             // Convert both username and password to bytes
-            byte[] passBytes = Encoding.UTF8.GetBytes(new string(password));
+            // Replace the vulnerable line with this:
+            int byteCount = Encoding.UTF8.GetByteCount(password);
+            byte[] passBytes = new byte[byteCount];
+            Encoding.UTF8.GetBytes(password, 0, password.Length, passBytes, 0);
             byte[] userBytes = Encoding.UTF8.GetBytes(normUser);
 
             try

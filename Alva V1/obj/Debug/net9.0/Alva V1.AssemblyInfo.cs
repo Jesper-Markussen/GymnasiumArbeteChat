@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Alva V1")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+46ee1427af9a92671461693221812d0ec6c0d071")]
 [assembly: System.Reflection.AssemblyProductAttribute("Alva V1")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Alva V1")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,12 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "8GUY0r8ogE4=",
+  "dgSpecHash": "5OWhTYr0lJ4=",
   "success": true,
   "projectFilePath": "/Users/Jesper/RiderProjects/Gymnasiearbete Applikation Version Alva/Alva V1/Alva V1.csproj",
   "expectedPackageFiles": [
     "/Users/Jesper/.nuget/packages/konscious.security.cryptography.argon2/1.3.1/konscious.security.cryptography.argon2.1.3.1.nupkg.sha512",
     "/Users/Jesper/.nuget/packages/konscious.security.cryptography.blake2/1.1.1/konscious.security.cryptography.blake2.1.1.1.nupkg.sha512",
-    "/Users/Jesper/.nuget/packages/system.memory/4.5.4/system.memory.4.5.4.nupkg.sha512"
+    "/Users/Jesper/.nuget/packages/system.memory/4.5.4/system.memory.4.5.4.nupkg.sha512",
+    "/Users/Jesper/.nuget/packages/system.net.http.json/9.0.11/system.net.http.json.9.0.11.nupkg.sha512"
   ],
   "logs": []
 }

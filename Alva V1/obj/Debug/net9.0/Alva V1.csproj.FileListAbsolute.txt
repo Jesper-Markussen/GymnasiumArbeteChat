@@ -16,3 +16,4 @@
 /Users/Jesper/RiderProjects/Gymnasiearbete Applikation Version Alva/Alva V1/obj/Debug/net9.0/Alva V1.pdb
 /Users/Jesper/RiderProjects/Gymnasiearbete Applikation Version Alva/Alva V1/obj/Debug/net9.0/Alva V1.genruntimeconfig.cache
 /Users/Jesper/RiderProjects/Gymnasiearbete Applikation Version Alva/Alva V1/obj/Debug/net9.0/ref/Alva V1.dll
+/Users/Jesper/RiderProjects/Gymnasiearbete Applikation Version Alva/Alva V1/obj/Debug/net9.0/Alva V1.sourcelink.json
