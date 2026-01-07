@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "0i8noCgtz20=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\CloudTails\\source\\repos\\Alva_GUI\\Alva_GUI\\Alva_GUI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\CloudTails\\.nuget\\packages\\konscious.security.cryptography.argon2\\1.3.1\\konscious.security.cryptography.argon2.1.3.1.nupkg.sha512",
+    "C:\\Users\\CloudTails\\.nuget\\packages\\konscious.security.cryptography.blake2\\1.1.1\\konscious.security.cryptography.blake2.1.1.1.nupkg.sha512"
+  ],
+  "logs": []
+}
