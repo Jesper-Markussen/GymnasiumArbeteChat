@@ -18,11 +18,13 @@ public class UserStore
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
         conn.Open();
         var cmd = conn.CreateCommand();
+        // FIX: Added PublicKeyXml to the CREATE statement
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS Users (
                 Username TEXT PRIMARY KEY,
                 PasswordHash TEXT NOT NULL,
-                Salt BLOB NOT NULL
+                Salt BLOB NOT NULL,
+                PublicKeyXml TEXT NOT NULL
             );
         ";
         cmd.ExecuteNonQuery();
@@ -43,10 +45,12 @@ public class UserStore
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
         conn.Open();
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO Users (Username, PasswordHash, Salt) VALUES ($u, $p, $s)";
+        // FIX: Added PublicKeyXml to the INSERT statement
+        cmd.CommandText = "INSERT INTO Users (Username, PasswordHash, Salt, PublicKeyXml) VALUES ($u, $p, $s, $pk)";
         cmd.Parameters.AddWithValue("$u", user.Username.ToLowerInvariant());
         cmd.Parameters.AddWithValue("$p", user.PasswordHash);
         cmd.Parameters.AddWithValue("$s", user.Salt);
+        cmd.Parameters.AddWithValue("$pk", user.PublicKeyXml); // Don't forget this!
         cmd.ExecuteNonQuery();
     }
 
@@ -55,7 +59,8 @@ public class UserStore
         using var conn = new SqliteConnection($"Data Source={_dbPath}");
         conn.Open();
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT PasswordHash, Salt FROM Users WHERE Username = $u";
+        // FIX: Added PublicKeyXml to the SELECT statement
+        cmd.CommandText = "SELECT PasswordHash, Salt, PublicKeyXml FROM Users WHERE Username = $u";
         cmd.Parameters.AddWithValue("$u", username.ToLowerInvariant());
 
         using var reader = cmd.ExecuteReader();
@@ -65,7 +70,8 @@ public class UserStore
         {
             Username = username.ToLowerInvariant(),
             PasswordHash = reader.GetString(0),
-            Salt = (byte[])reader["Salt"]
+            Salt = (byte[])reader["Salt"],
+            PublicKeyXml = reader.GetString(2) // Map the new column
         };
     }
 }
